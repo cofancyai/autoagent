@@ -965,8 +965,17 @@
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.detail || 'Failed to send message');
+                    const errorText = await response.text();
+                    let errorMessage = `HTTP ${response.status}: Failed to send message`;
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        errorMessage = errorData.detail || errorMessage;
+                    } catch (e) {
+                        // Not JSON, use the text directly
+                        if (errorText) errorMessage = errorText.substring(0, 200);
+                    }
+                    addLog(`Status ${response.status}: ${errorMessage}`, 'error', '❌');
+                    throw new Error(errorMessage);
                 }
 
                 const data = await response.json();
