@@ -1007,11 +1007,11 @@
                 }
 
                 // Get pending approvals
-                const approvalsResponse = await fetch(`${API_BASE_URL}/approvals?session_id=${state.sessionId}&status=pending`);
+                const approvalsResponse = await fetch(`${API_BASE_URL}/sessions/${state.sessionId}/approvals?status=pending`);
                 const approvalsResult = await approvalsResponse.json();
                 const approvalsData = approvalsResult.data; // Unwrap APIResponse
 
-                if (approvalsData.approvals && approvalsData.approvals.length > 0) {
+                if (approvalsData && approvalsData.approvals && approvalsData.approvals.length > 0) {
                     const latestApproval = approvalsData.approvals[0];
                     displayOptions(latestApproval);
                     state.currentApprovalId = latestApproval.id;
