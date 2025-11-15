@@ -7,10 +7,7 @@ from httpx import AsyncClient
 @pytest.mark.asyncio
 async def test_create_session(client: AsyncClient):
     """Test creating a new session"""
-    response = await client.post(
-        "/api/v1/sessions",
-        json={"title": "My First Session"}
-    )
+    response = await client.post("/api/v1/sessions", json={"title": "My First Session"})
 
     assert response.status_code == 201
     data = response.json()
@@ -33,10 +30,7 @@ async def test_get_session(client: AsyncClient, test_session):
 @pytest.mark.asyncio
 async def test_update_session(client: AsyncClient, test_session):
     """Test updating a session"""
-    response = await client.patch(
-        f"/api/v1/sessions/{test_session.id}",
-        json={"status": "paused"}
-    )
+    response = await client.patch(f"/api/v1/sessions/{test_session.id}", json={"status": "paused"})
 
     assert response.status_code == 200
     data = response.json()

@@ -2,7 +2,8 @@
 
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, ForeignKey, Integer, Numeric
+
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -15,17 +16,9 @@ class LLMAPICall(Base):
     __tablename__ = "llm_api_calls"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    session_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("sessions.id"),
-        nullable=True,
-        index=True
-    )
+    session_id = Column(UUID(as_uuid=True), ForeignKey("sessions.id"), nullable=True, index=True)
     thinking_process_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("thinking_processes.id"),
-        nullable=True,
-        index=True
+        UUID(as_uuid=True), ForeignKey("thinking_processes.id"), nullable=True, index=True
     )
     provider = Column(String(50), nullable=False)  # 'anthropic', 'openai', 'custom'
     model = Column(String(100), nullable=False)

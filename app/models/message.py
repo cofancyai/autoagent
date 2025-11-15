@@ -2,8 +2,9 @@
 
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+
+from sqlalchemy import Column, DateTime, ForeignKey, String, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -19,7 +20,7 @@ class Message(Base):
         UUID(as_uuid=True),
         ForeignKey("sessions.id", ondelete="CASCADE"),
         nullable=False,
-        index=True
+        index=True,
     )
     role = Column(String(20), nullable=False)  # 'user', 'assistant', 'system'
     content = Column(Text, nullable=False)

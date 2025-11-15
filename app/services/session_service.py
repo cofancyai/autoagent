@@ -1,8 +1,9 @@
 """Session management service"""
 
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 from uuid import UUID
-from sqlalchemy import select, func
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.session import Session
@@ -15,16 +16,13 @@ class SessionService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def create_session(
-        self,
-        session_data: SessionCreate
-    ) -> Session:
+    async def create_session(self, session_data: SessionCreate) -> Session:
         """Create a new session"""
         session = Session(
             user_id=session_data.user_id,
             title=session_data.title or "New Session",
             context=session_data.context or {},
-            status="active"
+            status="active",
         )
 
         self.db.add(session)
@@ -35,9 +33,7 @@ class SessionService:
 
     async def get_session(self, session_id: UUID) -> Optional[Session]:
         """Get a session by ID"""
-        result = await self.db.execute(
-            select(Session).where(Session.id == session_id)
-        )
+        result = await self.db.execute(select(Session).where(Session.id == session_id))
         return result.scalar_one_or_none()
 
     async def list_sessions(
@@ -45,7 +41,7 @@ class SessionService:
         user_id: Optional[UUID] = None,
         status: Optional[str] = None,
         page: int = 1,
-        limit: int = 20
+        limit: int = 20,
     ) -> tuple[List[Session], int]:
         """
         List sessions with pagination
@@ -76,9 +72,7 @@ class SessionService:
         return list(sessions), total
 
     async def update_session(
-        self,
-        session_id: UUID,
-        session_data: SessionUpdate
+        self, session_id: UUID, session_data: SessionUpdate
     ) -> Optional[Session]:
         """Update a session"""
         session = await self.get_session(session_id)
@@ -107,9 +101,7 @@ class SessionService:
         return True
 
     async def update_context(
-        self,
-        session_id: UUID,
-        context_updates: Dict[str, Any]
+        self, session_id: UUID, context_updates: Dict[str, Any]
     ) -> Optional[Session]:
         """Update session context"""
         session = await self.get_session(session_id)

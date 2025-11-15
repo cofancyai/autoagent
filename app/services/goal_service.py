@@ -1,7 +1,8 @@
 """Goal management service"""
 
-from typing import Optional, List
+from typing import List, Optional
 from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,17 +16,13 @@ class GoalService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def create_goal(
-        self,
-        session_id: UUID,
-        goal_data: GoalCreate
-    ) -> Goal:
+    async def create_goal(self, session_id: UUID, goal_data: GoalCreate) -> Goal:
         """Create a new goal"""
         goal = Goal(
             session_id=session_id,
             description=goal_data.description,
             priority=goal_data.priority,
-            status="pending"
+            status="pending",
         )
 
         self.db.add(goal)
@@ -36,16 +33,10 @@ class GoalService:
 
     async def get_goal(self, goal_id: UUID) -> Optional[Goal]:
         """Get a goal by ID"""
-        result = await self.db.execute(
-            select(Goal).where(Goal.id == goal_id)
-        )
+        result = await self.db.execute(select(Goal).where(Goal.id == goal_id))
         return result.scalar_one_or_none()
 
-    async def list_goals(
-        self,
-        session_id: UUID,
-        status: Optional[str] = None
-    ) -> List[Goal]:
+    async def list_goals(self, session_id: UUID, status: Optional[str] = None) -> List[Goal]:
         """List goals for a session"""
         query = select(Goal).where(Goal.session_id == session_id)
 
@@ -57,11 +48,7 @@ class GoalService:
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
-    async def update_goal(
-        self,
-        goal_id: UUID,
-        goal_data: GoalUpdate
-    ) -> Optional[Goal]:
+    async def update_goal(self, goal_id: UUID, goal_data: GoalUpdate) -> Optional[Goal]:
         """Update a goal"""
         goal = await self.get_goal(goal_id)
         if not goal:
@@ -77,11 +64,7 @@ class GoalService:
 
         return goal
 
-    async def mark_goal_completed(
-        self,
-        goal_id: UUID,
-        result: dict
-    ) -> Optional[Goal]:
+    async def mark_goal_completed(self, goal_id: UUID, result: dict) -> Optional[Goal]:
         """Mark a goal as completed with result"""
         goal = await self.get_goal(goal_id)
         if not goal:
@@ -95,11 +78,7 @@ class GoalService:
 
         return goal
 
-    async def mark_goal_failed(
-        self,
-        goal_id: UUID,
-        error: str
-    ) -> Optional[Goal]:
+    async def mark_goal_failed(self, goal_id: UUID, error: str) -> Optional[Goal]:
         """Mark a goal as failed"""
         goal = await self.get_goal(goal_id)
         if not goal:

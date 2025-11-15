@@ -2,8 +2,9 @@
 
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+
+from sqlalchemy import Column, DateTime, ForeignKey, String
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -19,17 +20,11 @@ class ThinkingProcess(Base):
         UUID(as_uuid=True),
         ForeignKey("sessions.id", ondelete="CASCADE"),
         nullable=False,
-        index=True
+        index=True,
     )
-    goal_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("goals.id"),
-        nullable=True,
-        index=True
-    )
+    goal_id = Column(UUID(as_uuid=True), ForeignKey("goals.id"), nullable=True, index=True)
     process_type = Column(
-        String(100),
-        nullable=True
+        String(100), nullable=True
     )  # 'chain_of_thought', 'tree_of_thought', 'react'
     input_data = Column(JSONB, nullable=True)
     reasoning_steps = Column(JSONB, nullable=True)  # Array of thinking steps
@@ -41,14 +36,8 @@ class ThinkingProcess(Base):
     # Relationships
     session = relationship("Session", back_populates="thinking_processes")
     goal = relationship("Goal", back_populates="thinking_processes")
-    approval_checkpoints = relationship(
-        "ApprovalCheckpoint",
-        back_populates="thinking_process"
-    )
-    llm_api_calls = relationship(
-        "LLMAPICall",
-        back_populates="thinking_process"
-    )
+    approval_checkpoints = relationship("ApprovalCheckpoint", back_populates="thinking_process")
+    llm_api_calls = relationship("LLMAPICall", back_populates="thinking_process")
 
     def __repr__(self) -> str:
         return f"<ThinkingProcess(id={self.id}, type={self.process_type}, status={self.status})>"

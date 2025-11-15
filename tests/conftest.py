@@ -1,27 +1,23 @@
 """Test fixtures and configuration"""
 
-import pytest
 import asyncio
 from typing import AsyncGenerator
+
+import pytest
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.main import app
 from app.database import Base, get_db
-from app.models.user import User
+from app.main import app
 from app.models.session import Session
-
+from app.models.user import User
 
 # Test database URL (use in-memory or test database)
 TEST_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/thinkingagent_test"
 
 # Create test engine
 test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-TestSessionLocal = async_sessionmaker(
-    test_engine,
-    class_=AsyncSession,
-    expire_on_commit=False
-)
+TestSessionLocal = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
 
 
 @pytest.fixture(scope="session")
@@ -67,10 +63,7 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 @pytest.fixture
 async def test_user(db_session: AsyncSession) -> User:
     """Create a test user"""
-    user = User(
-        username="testuser",
-        email="test@example.com"
-    )
+    user = User(username="testuser", email="test@example.com")
     db_session.add(user)
     await db_session.commit()
     await db_session.refresh(user)
@@ -81,10 +74,7 @@ async def test_user(db_session: AsyncSession) -> User:
 async def test_session(db_session: AsyncSession, test_user: User) -> Session:
     """Create a test session"""
     session = Session(
-        user_id=test_user.id,
-        title="Test Session",
-        status="active",
-        context={"test": True}
+        user_id=test_user.id, title="Test Session", status="active", context={"test": True}
     )
     db_session.add(session)
     await db_session.commit()

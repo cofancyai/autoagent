@@ -2,8 +2,9 @@
 
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+
+from sqlalchemy import Column, DateTime, ForeignKey, String, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -19,14 +20,9 @@ class ExecutionLog(Base):
         UUID(as_uuid=True),
         ForeignKey("sessions.id", ondelete="CASCADE"),
         nullable=False,
-        index=True
+        index=True,
     )
-    goal_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("goals.id"),
-        nullable=True,
-        index=True
-    )
+    goal_id = Column(UUID(as_uuid=True), ForeignKey("goals.id"), nullable=True, index=True)
     action = Column(String(200), nullable=False)
     status = Column(String(50), nullable=True)  # 'started', 'completed', 'failed'
     input_data = Column(JSONB, nullable=True)

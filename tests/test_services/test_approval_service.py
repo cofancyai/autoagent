@@ -3,8 +3,8 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.approval_service import ApprovalService
 from app.schemas.approval import ApprovalCheckpointCreate, DecisionCreate, OptionSchema
+from app.services.approval_service import ApprovalService
 
 
 @pytest.mark.asyncio
@@ -17,12 +17,10 @@ async def test_create_checkpoint(db_session: AsyncSession, test_session):
         decision_needed="Choose technology stack",
         options=[
             OptionSchema(
-                name="Python + FastAPI",
-                pros=["Fast development"],
-                cons=["Slower runtime"]
+                name="Python + FastAPI", pros=["Fast development"], cons=["Slower runtime"]
             )
         ],
-        recommended_option=0
+        recommended_option=0,
     )
 
     checkpoint = await service.create_checkpoint(test_session.id, checkpoint_data)
@@ -44,18 +42,16 @@ async def test_submit_decision(db_session: AsyncSession, test_session):
         decision_needed="Test",
         options=[
             OptionSchema(name="Option 1", pros=[], cons=[]),
-            OptionSchema(name="Option 2", pros=[], cons=[])
+            OptionSchema(name="Option 2", pros=[], cons=[]),
         ],
-        recommended_option=0
+        recommended_option=0,
     )
     checkpoint = await service.create_checkpoint(test_session.id, checkpoint_data)
     await db_session.commit()
 
     # Submit decision
     decision_data = DecisionCreate(
-        selected_option=1,
-        modifications="Some changes",
-        reasoning="Makes sense"
+        selected_option=1, modifications="Some changes", reasoning="Makes sense"
     )
     decision = await service.submit_decision(checkpoint.id, decision_data)
     await db_session.commit()
@@ -78,7 +74,7 @@ async def test_cannot_submit_duplicate_decision(db_session: AsyncSession, test_s
     checkpoint_data = ApprovalCheckpointCreate(
         checkpoint_type="test",
         decision_needed="Test",
-        options=[OptionSchema(name="Option 1", pros=[], cons=[])]
+        options=[OptionSchema(name="Option 1", pros=[], cons=[])],
     )
     checkpoint = await service.create_checkpoint(test_session.id, checkpoint_data)
     await db_session.commit()
@@ -102,7 +98,7 @@ async def test_get_pending_approvals_count(db_session: AsyncSession, test_sessio
         checkpoint_data = ApprovalCheckpointCreate(
             checkpoint_type=f"test_{i}",
             decision_needed="Test",
-            options=[OptionSchema(name="Option", pros=[], cons=[])]
+            options=[OptionSchema(name="Option", pros=[], cons=[])],
         )
         await service.create_checkpoint(test_session.id, checkpoint_data)
 

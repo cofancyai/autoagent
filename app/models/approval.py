@@ -2,8 +2,9 @@
 
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Integer
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -19,50 +20,37 @@ class ApprovalCheckpoint(Base):
         UUID(as_uuid=True),
         ForeignKey("sessions.id", ondelete="CASCADE"),
         nullable=False,
-        index=True
+        index=True,
     )
     thinking_process_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("thinking_processes.id"),
-        nullable=True,
-        index=True
+        UUID(as_uuid=True), ForeignKey("thinking_processes.id"), nullable=True, index=True
     )
     checkpoint_type = Column(
-        String(100),
-        nullable=False
+        String(100), nullable=False
     )  # 'tech_stack', 'architecture', 'schema', etc.
     decision_needed = Column(Text, nullable=False)
     options = Column(JSONB, nullable=False)  # Array of options with pros/cons
     recommended_option = Column(Integer, nullable=True)
     status = Column(
-        String(20),
-        default="pending",
-        nullable=False,
-        index=True
+        String(20), default="pending", nullable=False, index=True
     )  # 'pending', 'approved', 'rejected', 'modified'
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
-        nullable=False
-    )
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     # Relationships
     session = relationship("Session", back_populates="approval_checkpoints")
-    thinking_process = relationship(
-        "ThinkingProcess",
-        back_populates="approval_checkpoints"
-    )
+    thinking_process = relationship("ThinkingProcess", back_populates="approval_checkpoints")
     decision = relationship(
         "Decision",
         back_populates="approval_checkpoint",
         uselist=False,
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:
-        return f"<ApprovalCheckpoint(id={self.id}, type={self.checkpoint_type}, status={self.status})>"
+        return (
+            f"<ApprovalCheckpoint(id={self.id}, type={self.checkpoint_type}, status={self.status})>"
+        )
 
 
 class Decision(Base):
@@ -76,7 +64,7 @@ class Decision(Base):
         ForeignKey("approval_checkpoints.id", ondelete="CASCADE"),
         nullable=False,
         unique=True,
-        index=True
+        index=True,
     )
     selected_option = Column(Integer, nullable=False)
     modifications = Column(Text, nullable=True)  # User modifications to the option

@@ -1,9 +1,10 @@
 """Approval management service"""
 
-from typing import Optional, List
-from uuid import UUID
 from datetime import datetime
-from sqlalchemy import select, func
+from typing import List, Optional
+from uuid import UUID
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -18,9 +19,7 @@ class ApprovalService:
         self.db = db
 
     async def create_checkpoint(
-        self,
-        session_id: UUID,
-        checkpoint_data: ApprovalCheckpointCreate
+        self, session_id: UUID, checkpoint_data: ApprovalCheckpointCreate
     ) -> ApprovalCheckpoint:
         """Create a new approval checkpoint"""
         # Convert options to dict for JSONB storage
@@ -33,7 +32,7 @@ class ApprovalService:
             decision_needed=checkpoint_data.decision_needed,
             options=options,
             recommended_option=checkpoint_data.recommended_option,
-            status="pending"
+            status="pending",
         )
 
         self.db.add(checkpoint)
@@ -42,10 +41,7 @@ class ApprovalService:
 
         return checkpoint
 
-    async def get_checkpoint(
-        self,
-        checkpoint_id: UUID
-    ) -> Optional[ApprovalCheckpoint]:
+    async def get_checkpoint(self, checkpoint_id: UUID) -> Optional[ApprovalCheckpoint]:
         """Get an approval checkpoint by ID with decision"""
         result = await self.db.execute(
             select(ApprovalCheckpoint)
@@ -55,9 +51,7 @@ class ApprovalService:
         return result.scalar_one_or_none()
 
     async def list_checkpoints(
-        self,
-        session_id: UUID,
-        status: Optional[str] = None
+        self, session_id: UUID, status: Optional[str] = None
     ) -> List[ApprovalCheckpoint]:
         """List approval checkpoints for a session"""
         query = (
@@ -75,9 +69,7 @@ class ApprovalService:
         return list(result.scalars().all())
 
     async def submit_decision(
-        self,
-        checkpoint_id: UUID,
-        decision_data: DecisionCreate
+        self, checkpoint_id: UUID, decision_data: DecisionCreate
     ) -> Optional[Decision]:
         """Submit a decision for an approval checkpoint"""
         # Get checkpoint
@@ -94,8 +86,9 @@ class ApprovalService:
             raise ValueError("Decision already submitted for this checkpoint")
 
         # Validate selected option
-        if decision_data.selected_option < 0 or \
-           decision_data.selected_option >= len(checkpoint.options):
+        if decision_data.selected_option < 0 or decision_data.selected_option >= len(
+            checkpoint.options
+        ):
             raise ValueError("Invalid option selected")
 
         # Create decision
@@ -103,7 +96,7 @@ class ApprovalService:
             approval_checkpoint_id=checkpoint_id,
             selected_option=decision_data.selected_option,
             modifications=decision_data.modifications,
-            reasoning=decision_data.reasoning
+            reasoning=decision_data.reasoning,
         )
 
         self.db.add(decision)
@@ -118,9 +111,7 @@ class ApprovalService:
         return decision
 
     async def reject_checkpoint(
-        self,
-        checkpoint_id: UUID,
-        reason: Optional[str] = None
+        self, checkpoint_id: UUID, reason: Optional[str] = None
     ) -> Optional[ApprovalCheckpoint]:
         """Reject an approval checkpoint"""
         checkpoint = await self.get_checkpoint(checkpoint_id)
@@ -145,8 +136,7 @@ class ApprovalService:
             select(func.count())
             .select_from(ApprovalCheckpoint)
             .where(
-                ApprovalCheckpoint.session_id == session_id,
-                ApprovalCheckpoint.status == "pending"
+                ApprovalCheckpoint.session_id == session_id, ApprovalCheckpoint.status == "pending"
             )
         )
         return result.scalar()

@@ -1,7 +1,8 @@
 """Message management service"""
 
-from typing import Optional, List
+from typing import List, Optional
 from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,17 +16,13 @@ class MessageService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def create_message(
-        self,
-        session_id: UUID,
-        message_data: MessageCreate
-    ) -> Message:
+    async def create_message(self, session_id: UUID, message_data: MessageCreate) -> Message:
         """Create a new message"""
         message = Message(
             session_id=session_id,
             role=message_data.role,
             content=message_data.content,
-            metadata=message_data.metadata
+            metadata=message_data.metadata,
         )
 
         self.db.add(message)
@@ -36,16 +33,11 @@ class MessageService:
 
     async def get_message(self, message_id: UUID) -> Optional[Message]:
         """Get a message by ID"""
-        result = await self.db.execute(
-            select(Message).where(Message.id == message_id)
-        )
+        result = await self.db.execute(select(Message).where(Message.id == message_id))
         return result.scalar_one_or_none()
 
     async def list_messages(
-        self,
-        session_id: UUID,
-        limit: int = 50,
-        before_id: Optional[UUID] = None
+        self, session_id: UUID, limit: int = 50, before_id: Optional[UUID] = None
     ) -> tuple[List[Message], bool]:
         """
         List messages for a session
@@ -73,11 +65,7 @@ class MessageService:
 
         return messages, has_more
 
-    async def get_conversation_history(
-        self,
-        session_id: UUID,
-        limit: int = 20
-    ) -> List[Message]:
+    async def get_conversation_history(self, session_id: UUID, limit: int = 20) -> List[Message]:
         """Get recent conversation history"""
         query = (
             select(Message)

@@ -2,34 +2,24 @@
 
 from typing import Optional
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.schemas.goal import GoalCreate, GoalListResponse, GoalResponse, GoalUpdate
+from app.schemas.response import APIResponse
+from app.services.event_service import EventService
 from app.services.goal_service import GoalService
 from app.services.session_service import SessionService
-from app.services.event_service import EventService
-from app.schemas.goal import (
-    GoalCreate,
-    GoalUpdate,
-    GoalResponse,
-    GoalListResponse
-)
-from app.schemas.response import APIResponse
 
 router = APIRouter(tags=["goals"])
 
 
 @router.post(
-    "/sessions/{session_id}/goals",
-    response_model=APIResponse[GoalResponse],
-    status_code=201
+    "/sessions/{session_id}/goals", response_model=APIResponse[GoalResponse], status_code=201
 )
-async def create_goal(
-    session_id: UUID,
-    goal_data: GoalCreate,
-    db: AsyncSession = Depends(get_db)
-):
+async def create_goal(session_id: UUID, goal_data: GoalCreate, db: AsyncSession = Depends(get_db)):
     """Create a new goal for a session"""
     session_service = SessionService(db)
     goal_service = GoalService(db)
@@ -48,7 +38,7 @@ async def create_goal(
         session_id=session_id,
         goal_id=goal.id,
         event_type="goal.created",
-        event_data={"description": goal.description, "priority": goal.priority}
+        event_data={"description": goal.description, "priority": goal.priority},
     )
 
     await db.commit()
@@ -56,14 +46,9 @@ async def create_goal(
     return APIResponse(data=GoalResponse.model_validate(goal))
 
 
-@router.get(
-    "/sessions/{session_id}/goals",
-    response_model=APIResponse[GoalListResponse]
-)
+@router.get("/sessions/{session_id}/goals", response_model=APIResponse[GoalListResponse])
 async def list_goals(
-    session_id: UUID,
-    status: Optional[str] = Query(None),
-    db: AsyncSession = Depends(get_db)
+    session_id: UUID, status: Optional[str] = Query(None), db: AsyncSession = Depends(get_db)
 ):
     """List goals for a session"""
     session_service = SessionService(db)
@@ -79,17 +64,13 @@ async def list_goals(
 
     return APIResponse(
         data=GoalListResponse(
-            goals=[GoalResponse.model_validate(g) for g in goals],
-            total=len(goals)
+            goals=[GoalResponse.model_validate(g) for g in goals], total=len(goals)
         )
     )
 
 
 @router.get("/goals/{goal_id}", response_model=APIResponse[GoalResponse])
-async def get_goal(
-    goal_id: UUID,
-    db: AsyncSession = Depends(get_db)
-):
+async def get_goal(goal_id: UUID, db: AsyncSession = Depends(get_db)):
     """Get goal details"""
     goal_service = GoalService(db)
 
@@ -101,11 +82,7 @@ async def get_goal(
 
 
 @router.patch("/goals/{goal_id}", response_model=APIResponse[GoalResponse])
-async def update_goal(
-    goal_id: UUID,
-    goal_data: GoalUpdate,
-    db: AsyncSession = Depends(get_db)
-):
+async def update_goal(goal_id: UUID, goal_data: GoalUpdate, db: AsyncSession = Depends(get_db)):
     """Update a goal"""
     goal_service = GoalService(db)
     event_service = EventService(db)
@@ -119,7 +96,7 @@ async def update_goal(
         session_id=goal.session_id,
         goal_id=goal.id,
         event_type="goal.updated",
-        event_data=goal_data.model_dump(exclude_unset=True)
+        event_data=goal_data.model_dump(exclude_unset=True),
     )
 
     await db.commit()

@@ -16,16 +16,16 @@ async def test_create_approval_checkpoint(client: AsyncClient, test_session):
                 {
                     "name": "Python + FastAPI",
                     "pros": ["Fast development", "Great for AI"],
-                    "cons": ["Slower than compiled languages"]
+                    "cons": ["Slower than compiled languages"],
                 },
                 {
                     "name": "Node.js + Express",
                     "pros": ["JavaScript everywhere"],
-                    "cons": ["Less mature AI tooling"]
-                }
+                    "cons": ["Less mature AI tooling"],
+                },
             ],
-            "recommended_option": 0
-        }
+            "recommended_option": 0,
+        },
     )
 
     assert response.status_code == 201
@@ -46,10 +46,10 @@ async def test_submit_approval_decision(client: AsyncClient, test_session):
             "decision_needed": "Choose database schema",
             "options": [
                 {"name": "Option 1", "pros": ["Pro1"], "cons": ["Con1"]},
-                {"name": "Option 2", "pros": ["Pro2"], "cons": ["Con2"]}
+                {"name": "Option 2", "pros": ["Pro2"], "cons": ["Con2"]},
             ],
-            "recommended_option": 0
-        }
+            "recommended_option": 0,
+        },
     )
     approval_id = create_response.json()["data"]["id"]
 
@@ -59,8 +59,8 @@ async def test_submit_approval_decision(client: AsyncClient, test_session):
         json={
             "selected_option": 1,
             "modifications": "Use PostgreSQL instead",
-            "reasoning": "Better for our use case"
-        }
+            "reasoning": "Better for our use case",
+        },
     )
 
     assert decision_response.status_code == 200
@@ -85,15 +85,13 @@ async def test_list_pending_approvals(client: AsyncClient, test_session):
                 "decision_needed": f"Decision {i}",
                 "options": [
                     {"name": "Option A", "pros": [], "cons": []},
-                    {"name": "Option B", "pros": [], "cons": []}
-                ]
-            }
+                    {"name": "Option B", "pros": [], "cons": []},
+                ],
+            },
         )
 
     # List pending approvals
-    response = await client.get(
-        f"/api/v1/sessions/{test_session.id}/approvals?status=pending"
-    )
+    response = await client.get(f"/api/v1/sessions/{test_session.id}/approvals?status=pending")
 
     assert response.status_code == 200
     data = response.json()
@@ -109,24 +107,18 @@ async def test_cannot_submit_decision_twice(client: AsyncClient, test_session):
         json={
             "checkpoint_type": "test",
             "decision_needed": "Test decision",
-            "options": [
-                {"name": "Option 1", "pros": [], "cons": []}
-            ],
-            "recommended_option": 0
-        }
+            "options": [{"name": "Option 1", "pros": [], "cons": []}],
+            "recommended_option": 0,
+        },
     )
     approval_id = create_response.json()["data"]["id"]
 
     # Submit first decision
-    await client.post(
-        f"/api/v1/approvals/{approval_id}/decide",
-        json={"selected_option": 0}
-    )
+    await client.post(f"/api/v1/approvals/{approval_id}/decide", json={"selected_option": 0})
 
     # Try to submit second decision
     second_response = await client.post(
-        f"/api/v1/approvals/{approval_id}/decide",
-        json={"selected_option": 0}
+        f"/api/v1/approvals/{approval_id}/decide", json={"selected_option": 0}
     )
 
     assert second_response.status_code == 400
@@ -141,10 +133,8 @@ async def test_reject_approval(client: AsyncClient, test_session):
         json={
             "checkpoint_type": "test",
             "decision_needed": "Test decision",
-            "options": [
-                {"name": "Option 1", "pros": [], "cons": []}
-            ]
-        }
+            "options": [{"name": "Option 1", "pros": [], "cons": []}],
+        },
     )
     approval_id = create_response.json()["data"]["id"]
 

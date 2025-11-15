@@ -2,20 +2,17 @@
 
 import time
 from enum import Enum
-from typing import Optional, List, Dict, Any, AsyncIterator
+from typing import Any, AsyncIterator, Dict, List, Optional
+
 from anthropic import AsyncAnthropic
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-    retry_if_exception_type
-)
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from app.config import settings
 
 
 class ModelType(str, Enum):
     """Claude model types"""
+
     OPUS = "opus"
     SONNET = "sonnet"
     HAIKU = "haiku"
@@ -30,20 +27,20 @@ class AnthropicClient:
             "id": "claude-opus-4-20250514",
             "max_tokens": 8192,
             "temperature": 0.7,
-            "use_cases": ["deep_research", "complex_reasoning", "architecture"]
+            "use_cases": ["deep_research", "complex_reasoning", "architecture"],
         },
         ModelType.SONNET: {
             "id": "claude-sonnet-4-5-20250929",
             "max_tokens": 8192,
             "temperature": 0.7,
-            "use_cases": ["code_generation", "planning", "approvals"]
+            "use_cases": ["code_generation", "planning", "approvals"],
         },
         ModelType.HAIKU: {
             "id": "claude-haiku-4-20250514",
             "max_tokens": 4096,
             "temperature": 0.5,
-            "use_cases": ["quick_reply", "simple_tasks", "status"]
-        }
+            "use_cases": ["quick_reply", "simple_tasks", "status"],
+        },
     }
 
     def __init__(self):
@@ -62,7 +59,7 @@ class AnthropicClient:
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type(Exception)
+        retry=retry_if_exception_type(Exception),
     )
     async def generate(
         self,
@@ -110,11 +107,7 @@ class AnthropicClient:
         if system_context:
             if use_cache and self.enable_caching:
                 request_params["system"] = [
-                    {
-                        "type": "text",
-                        "text": system_context,
-                        "cache_control": {"type": "ephemeral"}
-                    }
+                    {"type": "text", "text": system_context, "cache_control": {"type": "ephemeral"}}
                 ]
             else:
                 request_params["system"] = system_context
@@ -140,9 +133,7 @@ class AnthropicClient:
             }
 
     async def _stream_response(
-        self,
-        request_params: Dict[str, Any],
-        start_time: float
+        self, request_params: Dict[str, Any], start_time: float
     ) -> AsyncIterator[str]:
         """Stream response from Claude"""
         async with self.client.messages.stream(**request_params) as stream:
@@ -173,10 +164,7 @@ class AnthropicClient:
         return task_routing.get(task_type, ModelType.SONNET)
 
     async def estimate_cost(
-        self,
-        model: ModelType,
-        prompt_tokens: int,
-        completion_tokens: int
+        self, model: ModelType, prompt_tokens: int, completion_tokens: int
     ) -> float:
         """
         Estimate cost of an API call
@@ -203,7 +191,7 @@ class AnthropicClient:
             ModelType.HAIKU: {
                 "prompt": 0.25 / 1_000_000,  # $0.25 per million tokens
                 "completion": 1.25 / 1_000_000,  # $1.25 per million tokens
-            }
+            },
         }
 
         model_pricing = pricing[model]
