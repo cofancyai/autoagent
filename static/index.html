@@ -920,11 +920,13 @@
 
                 if (!response.ok) throw new Error('Failed to create session');
 
-                const data = await response.json();
-                state.sessionId = data.id;
+                const result = await response.json();
+                // API wraps response in { data: { ... } }
+                const sessionData = result.data;
+                state.sessionId = sessionData.id;
 
                 addLog(`Session created: ${state.sessionId}`, 'success', '✅');
-                return data;
+                return sessionData;
             } catch (error) {
                 addLog(`Error creating session: ${error.message}`, 'error', '❌');
                 throw error;
@@ -986,7 +988,8 @@
             try {
                 // Get latest messages
                 const messagesResponse = await fetch(`${API_BASE_URL}/sessions/${state.sessionId}/messages`);
-                const messagesData = await messagesResponse.json();
+                const messagesResult = await messagesResponse.json();
+                const messagesData = messagesResult.data; // Unwrap APIResponse
 
                 // Update messages
                 if (messagesData.messages && messagesData.messages.length > state.messages.length) {
@@ -1002,7 +1005,8 @@
 
                 // Get pending approvals
                 const approvalsResponse = await fetch(`${API_BASE_URL}/approvals?session_id=${state.sessionId}&status=pending`);
-                const approvalsData = await approvalsResponse.json();
+                const approvalsResult = await approvalsResponse.json();
+                const approvalsData = approvalsResult.data; // Unwrap APIResponse
 
                 if (approvalsData.approvals && approvalsData.approvals.length > 0) {
                     const latestApproval = approvalsData.approvals[0];
