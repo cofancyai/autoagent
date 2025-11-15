@@ -1,6 +1,6 @@
 """Message API endpoints"""
 
-from typing import Optional
+from typing import Any, Dict, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -12,18 +12,25 @@ from app.schemas.response import APIResponse
 from app.services.event_service import EventService
 from app.services.message_service import MessageService
 from app.services.session_service import SessionService
+from app.services.thinking_agent_service import ThinkingAgentService
 
 router = APIRouter(prefix="/sessions/{session_id}/messages", tags=["messages"])
 
 
-@router.post("", response_model=APIResponse[MessageResponse], status_code=201)
+@router.post("", response_model=APIResponse, status_code=201)
 async def create_message(
     session_id: UUID, message_data: MessageCreate, db: AsyncSession = Depends(get_db)
 ):
-    """Send a message in a session"""
+    """
+    Send a message in a session
+
+    If the message is from a user, the AI will automatically analyze it
+    and generate strategic options, creating an approval checkpoint.
+    """
     session_service = SessionService(db)
     message_service = MessageService(db)
     event_service = EventService(db)
+    thinking_service = ThinkingAgentService(db)
 
     # Verify session exists
     session = await session_service.get_session(session_id)
@@ -44,7 +51,35 @@ async def create_message(
 
     await db.commit()
 
-    return APIResponse(data=MessageResponse.model_validate(message))
+    # Build response
+    response_data: Dict[str, Any] = {
+        "message": MessageResponse.model_validate(message),
+    }
+
+    # If this is a user message, trigger AI thinking
+    if message.role == "user":
+        try:
+            approval = await thinking_service.process_user_message(session_id, message)
+
+            if approval:
+                response_data["approval_checkpoint"] = {
+                    "id": str(approval.id),
+                    "checkpoint_type": approval.checkpoint_type,
+                    "decision_needed": approval.decision_needed,
+                    "options_count": len(approval.options),
+                    "recommended_option": approval.recommended_option,
+                }
+        except Exception as e:
+            # Log error but don't fail the message creation
+            await event_service.log_event(
+                event_type="ai.processing_error",
+                event_data={"error": str(e), "message_id": str(message.id)},
+                session_id=session_id,
+            )
+            # Optionally add error info to response
+            response_data["ai_processing"] = {"status": "failed", "error": str(e)}
+
+    return APIResponse(data=response_data)
 
 
 @router.get("", response_model=APIResponse[MessageListResponse])
