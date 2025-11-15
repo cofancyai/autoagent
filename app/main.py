@@ -2,11 +2,13 @@
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import approvals, goals, messages, sessions
 from app.config import settings
@@ -102,6 +104,12 @@ app.include_router(messages.router, prefix="/api/v1")
 app.include_router(approvals.router, prefix="/api/v1")
 app.include_router(goals.router, prefix="/api/v1")
 
+# Mount static files
+static_path = Path(__file__).parent.parent / "static"
+if static_path.exists():
+    app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+    logger.info(f"Static files mounted from {static_path}")
+
 
 # Health check endpoint
 @app.get("/health", tags=["health"])
@@ -115,9 +123,13 @@ async def health_check():
     }
 
 
+# Serve UI
 @app.get("/", tags=["root"])
 async def root():
-    """Root endpoint"""
+    """Serve the ThinkingAgent UI"""
+    index_path = Path(__file__).parent.parent / "static" / "index.html"
+    if index_path.exists():
+        return FileResponse(index_path)
     return {
         "message": f"Welcome to {settings.app_name} API",
         "version": settings.app_version,
