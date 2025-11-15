@@ -10,7 +10,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.v1 import approvals, goals, messages, sessions
+from app.api.v1 import (
+    approvals,
+    created_assets,
+    execution_projects,
+    execution_tasks,
+    goals,
+    messages,
+    service_integrations,
+    sessions,
+)
 from app.config import settings
 from app.database import close_db, init_db
 
@@ -103,6 +112,10 @@ app.include_router(sessions.router, prefix="/api/v1")
 app.include_router(messages.router, prefix="/api/v1")
 app.include_router(approvals.router, prefix="/api/v1")
 app.include_router(goals.router, prefix="/api/v1")
+app.include_router(execution_projects.router, prefix="/api/v1")
+app.include_router(execution_tasks.router, prefix="/api/v1")
+app.include_router(created_assets.router, prefix="/api/v1")
+app.include_router(service_integrations.router, prefix="/api/v1")
 
 # Mount static files
 static_path = Path(__file__).parent.parent / "static"

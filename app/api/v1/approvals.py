@@ -99,7 +99,7 @@ async def get_approval(approval_id: UUID, db: AsyncSession = Depends(get_db)):
 async def submit_decision(
     approval_id: UUID, decision_data: DecisionCreate, db: AsyncSession = Depends(get_db)
 ):
-    """Submit a decision for an approval checkpoint"""
+    """Submit a decision for an approval checkpoint and trigger execution"""
     approval_service = ApprovalService(db)
     event_service = EventService(db)
 
@@ -123,6 +123,24 @@ async def submit_decision(
         )
 
         await db.commit()
+
+        # TRIGGER EXECUTION: Start project execution in background
+        from app.services.project_orchestrator_service import ProjectOrchestrator
+
+        try:
+            orchestrator = ProjectOrchestrator(db)
+            await orchestrator.execute_approved_decision(
+                checkpoint.session_id, checkpoint, decision
+            )
+            await db.commit()
+        except Exception as e:
+            # Log error but don't fail the decision submission
+            await event_service.log_event(
+                event_type="execution.start_failed",
+                event_data={"error": str(e), "approval_id": str(approval_id)},
+                session_id=checkpoint.session_id,
+            )
+            await db.commit()
 
         return APIResponse(data=DecisionResponse.model_validate(decision))
 

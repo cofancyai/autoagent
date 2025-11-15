@@ -1028,8 +1028,89 @@
                     updateSendButton();
                     addLog(`Strategic options generated`, 'success', '🎯');
                 }
+
+                // Get execution projects for this session
+                await pollExecutionProjects();
             } catch (error) {
                 addLog(`Error polling updates: ${error.message}`, 'error', '❌');
+            }
+        }
+
+        async function pollExecutionProjects() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/projects?session_id=${state.sessionId}&limit=10`);
+                if (!response.ok) return;
+
+                const result = await response.json();
+                const projectsData = result.data;
+
+                if (projectsData && projectsData.projects) {
+                    displayProjects(projectsData.projects);
+                }
+            } catch (error) {
+                // Silent fail - projects might not exist yet
+                console.debug('No projects yet:', error.message);
+            }
+        }
+
+        function displayProjects(projects) {
+            const container = document.getElementById('projectsList');
+            if (!projects || projects.length === 0) {
+                container.innerHTML = '<div class="empty-state">No projects yet. Submit a decision to start execution!</div>';
+                return;
+            }
+
+            container.innerHTML = projects.map(project => `
+                <div class="project-card" onclick="showProjectDetails('${project.id}')">
+                    <div class="project-header">
+                        <div>
+                            <div class="project-name">${project.project_name}</div>
+                            <div class="project-type">${project.business_type}</div>
+                        </div>
+                        <div class="project-status status-${project.status}">${project.status}</div>
+                    </div>
+                    ${project.description ? `<div class="project-description">${project.description}</div>` : ''}
+                    <div class="project-progress">
+                        <div class="progress-header">
+                            <span class="progress-label">Progress</span>
+                            <span class="progress-value">${parseFloat(project.progress_percentage || 0).toFixed(0)}%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${project.progress_percentage || 0}%"></div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function showProjectDetails(projectId) {
+            try {
+                // Fetch project tasks
+                const tasksResponse = await fetch(`${API_BASE_URL}/tasks?project_id=${projectId}`);
+                const tasksResult = await tasksResponse.json();
+                const tasks = tasksResult.data.tasks || [];
+
+                // Fetch project assets
+                const assetsResponse = await fetch(`${API_BASE_URL}/assets?project_id=${projectId}`);
+                const assetsResult = await assetsResponse.json();
+                const assets = assetsResult.data.assets || [];
+
+                addLog(`Project has ${tasks.length} tasks, ${assets.length} assets`, 'info', '📊');
+
+                // Display task summary in activity log
+                tasks.forEach(task => {
+                    const icon = task.status === 'completed' ? '✅' : task.status === 'in_progress' ? '⚙️' : '⏳';
+                    addLog(`${task.task_name}: ${task.status} (${task.progress_percentage}%)`, 'info', icon);
+                });
+
+                // Display created assets
+                assets.forEach(asset => {
+                    if (asset.url) {
+                        addLog(`Asset: ${asset.asset_name} - ${asset.url}`, 'success', '🎯');
+                    }
+                });
+            } catch (error) {
+                addLog(`Error loading project details: ${error.message}`, 'error', '❌');
             }
         }
 
