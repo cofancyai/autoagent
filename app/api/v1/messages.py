@@ -58,6 +58,9 @@ async def create_message(
 
     # If this is a user message, trigger AI thinking
     if message.role == "user":
+        # Capture message ID before try block to avoid accessing expired object after rollback
+        message_id = str(message.id)
+
         try:
             approval = await thinking_service.process_user_message(session_id, message)
 
@@ -71,9 +74,10 @@ async def create_message(
                 }
         except Exception as e:
             # Log error but don't fail the message creation
+            # Use captured message_id to avoid greenlet error after rollback
             await event_service.log_event(
                 event_type="ai.processing_error",
-                event_data={"error": str(e), "message_id": str(message.id)},
+                event_data={"error": str(e), "message_id": message_id},
                 session_id=session_id,
             )
             # Optionally add error info to response
