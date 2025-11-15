@@ -4,17 +4,19 @@ AI-powered thinking agent with interactive approval mode for complex decision-ma
 
 ## 🎯 Overview
 
-ThinkingAgent is a backend system that enables AI agents to make complex decisions with human oversight through an interactive approval workflow. Built with FastAPI, PostgreSQL, and Anthropic Claude, it provides a robust foundation for building collaborative AI systems.
+ThinkingAgent is a backend system that enables AI agents to make complex decisions with human oversight through an interactive approval workflow. Built with FastAPI, PostgreSQL, and supporting both Anthropic Claude and OpenRouter APIs, it provides a robust foundation for building collaborative AI systems.
 
 ## ✨ Key Features
 
 - **Interactive Approval Workflow**: Present decisions to users with pros/cons analysis
 - **Session Management**: Track conversation contexts and agent state
 - **Event Sourcing**: Complete audit trail of all decisions and actions
-- **Anthropic Claude Integration**: Leverages Claude Opus, Sonnet, and Haiku models
+- **Multi-Provider LLM Support**:
+  - **Anthropic Claude**: Opus, Sonnet, and Haiku models with prompt caching
+  - **OpenRouter**: Access to free and paid models (auto-detected from API key)
 - **Hybrid API Design**: REST endpoints for commands, GraphQL for flexible querying (planned)
 - **Real-time Updates**: WebSocket support for live progress notifications (planned)
-- **Cost Tracking**: Monitor LLM API usage and costs
+- **Cost Tracking**: Monitor LLM API usage and costs (with $0 for free OpenRouter models)
 
 ## 🏗️ Architecture
 
@@ -47,7 +49,9 @@ app/
 - Python 3.11+
 - PostgreSQL 15+
 - Redis 7+
-- Anthropic API Key
+- **LLM API Key** (choose one):
+  - Anthropic API Key (for Claude models)
+  - OpenRouter API Key (for free/paid models including Qwen, Claude, GPT, etc.)
 
 ### Installation
 
@@ -72,8 +76,19 @@ app/
 4. **Set up environment variables**
    ```bash
    cp .env.example .env
-   # Edit .env and add your ANTHROPIC_API_KEY
+   # Edit .env and add your API key:
+   # - For Anthropic: ANTHROPIC_API_KEY=sk-ant-...
+   # - For OpenRouter: ANTHROPIC_API_KEY=sk-or-v1-... (and optionally OPENROUTER_MODEL)
    ```
+
+   **OpenRouter Configuration** (optional):
+   ```bash
+   # Example for using free Qwen model via OpenRouter
+   ANTHROPIC_API_KEY=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
+   OPENROUTER_MODEL=qwen/qwen3-coder:free
+   ```
+
+   See [OPENROUTER_INTEGRATION.md](OPENROUTER_INTEGRATION.md) for detailed setup guide.
 
 5. **Start services with Docker Compose**
    ```bash

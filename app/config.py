@@ -34,8 +34,9 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
 
-    # Anthropic
+    # Anthropic / OpenRouter
     anthropic_api_key: str = Field(default="", alias="ANTHROPIC_API_KEY")
+    openrouter_model: str = Field(default="qwen/qwen3-coder:free", alias="OPENROUTER_MODEL")
 
     # Security
     secret_key: str = Field(default="your_secret_key_here_change_in_production", alias="SECRET_KEY")

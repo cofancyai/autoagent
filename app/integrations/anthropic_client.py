@@ -1,13 +1,21 @@
-"""Anthropic Claude API client"""
+"""LLM API client supporting Anthropic and OpenRouter"""
 
 import time
 from enum import Enum
 from typing import Any, AsyncIterator, Dict, List, Optional
 
+import httpx
 from anthropic import AsyncAnthropic
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from app.config import settings
+
+
+class Provider(str, Enum):
+    """LLM Provider types"""
+
+    ANTHROPIC = "anthropic"
+    OPENROUTER = "openrouter"
 
 
 class ModelType(str, Enum):
@@ -19,7 +27,10 @@ class ModelType(str, Enum):
 
 
 class AnthropicClient:
-    """Client for Anthropic Claude API with prompt caching support"""
+    """Client for LLM APIs (Anthropic Claude and OpenRouter)"""
+
+    # OpenRouter API endpoint
+    OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
     # Model configurations
     MODEL_CONFIG = {
@@ -44,12 +55,40 @@ class AnthropicClient:
     }
 
     def __init__(self):
-        """Initialize Anthropic client"""
-        self.client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+        """Initialize LLM client (auto-detects provider from API key)"""
+        self.api_key = settings.anthropic_api_key
         self.enable_caching = settings.llm_enable_prompt_caching
+
+        # Detect provider from API key format
+        self.provider = self._detect_provider(self.api_key)
+
+        # Initialize appropriate client
+        if self.provider == Provider.ANTHROPIC:
+            self.client = AsyncAnthropic(api_key=self.api_key)
+            self.http_client = None
+        else:  # OpenRouter
+            self.client = None
+            self.http_client = httpx.AsyncClient(
+                base_url=self.OPENROUTER_BASE_URL,
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "HTTP-Referer": "https://github.com/cofancyai/autoagent",
+                    "X-Title": "ThinkingAgent",
+                },
+                timeout=60.0,
+            )
+
+    def _detect_provider(self, api_key: str) -> Provider:
+        """Detect LLM provider from API key format"""
+        if api_key.startswith("sk-or-v1-"):
+            return Provider.OPENROUTER
+        return Provider.ANTHROPIC
 
     def _get_model_id(self, model_type: ModelType) -> str:
         """Get model ID from model type"""
+        if self.provider == Provider.OPENROUTER:
+            # Use OpenRouter model from settings
+            return settings.openrouter_model
         return self.MODEL_CONFIG[model_type]["id"]
 
     def _get_model_config(self, model_type: ModelType) -> Dict[str, Any]:
@@ -72,7 +111,7 @@ class AnthropicClient:
         stream: bool = False,
     ) -> Dict[str, Any]:
         """
-        Generate a response from Claude
+        Generate a response from LLM (supports both Anthropic and OpenRouter)
 
         Args:
             model: Model type to use
@@ -80,12 +119,32 @@ class AnthropicClient:
             system_context: System context/prompt
             max_tokens: Maximum tokens to generate
             temperature: Sampling temperature
-            use_cache: Enable prompt caching
+            use_cache: Enable prompt caching (Anthropic only)
             stream: Enable response streaming
 
         Returns:
             Dict containing response, usage info, and metadata
         """
+        if self.provider == Provider.ANTHROPIC:
+            return await self._generate_anthropic(
+                model, messages, system_context, max_tokens, temperature, use_cache, stream
+            )
+        else:  # OpenRouter
+            return await self._generate_openrouter(
+                model, messages, system_context, max_tokens, temperature, stream
+            )
+
+    async def _generate_anthropic(
+        self,
+        model: ModelType,
+        messages: List[Dict[str, str]],
+        system_context: Optional[str],
+        max_tokens: Optional[int],
+        temperature: Optional[float],
+        use_cache: bool,
+        stream: bool,
+    ) -> Dict[str, Any]:
+        """Generate response using Anthropic API"""
         start_time = time.time()
 
         model_config = self._get_model_config(model)
@@ -132,6 +191,72 @@ class AnthropicClient:
                 "stop_reason": response.stop_reason,
             }
 
+    async def _generate_openrouter(
+        self,
+        model: ModelType,
+        messages: List[Dict[str, str]],
+        system_context: Optional[str],
+        max_tokens: Optional[int],
+        temperature: Optional[float],
+        stream: bool,
+    ) -> Dict[str, Any]:
+        """Generate response using OpenRouter API (OpenAI-compatible format)"""
+        start_time = time.time()
+
+        model_config = self._get_model_config(model)
+        model_id = self._get_model_id(model)  # Gets OpenRouter model
+
+        # Use provided values or defaults from config
+        max_tokens = max_tokens or model_config["max_tokens"]
+        temperature = temperature or model_config["temperature"]
+
+        # Build OpenAI-compatible messages format
+        openai_messages = []
+
+        # Add system message if provided
+        if system_context:
+            openai_messages.append({"role": "system", "content": system_context})
+
+        # Add conversation messages
+        openai_messages.extend(messages)
+
+        # Build request payload
+        payload = {
+            "model": model_id,
+            "messages": openai_messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+
+        # Make API call to OpenRouter
+        response = await self.http_client.post("/chat/completions", json=payload)
+        response.raise_for_status()
+        data = response.json()
+
+        latency_ms = int((time.time() - start_time) * 1000)
+
+        # Extract response in same format as Anthropic
+        content = ""
+        if data.get("choices") and len(data["choices"]) > 0:
+            content = data["choices"][0].get("message", {}).get("content", "")
+
+        usage = data.get("usage", {})
+        finish_reason = (
+            data["choices"][0].get("finish_reason", "stop") if data.get("choices") else "stop"
+        )
+
+        return {
+            "content": content,
+            "model": model_id,
+            "usage": {
+                "prompt_tokens": usage.get("prompt_tokens", 0),
+                "completion_tokens": usage.get("completion_tokens", 0),
+                "total_tokens": usage.get("total_tokens", 0),
+            },
+            "latency_ms": latency_ms,
+            "stop_reason": finish_reason,
+        }
+
     async def _stream_response(
         self, request_params: Dict[str, Any], start_time: float
     ) -> AsyncIterator[str]:
@@ -177,6 +302,10 @@ class AnthropicClient:
         Returns:
             Estimated cost in USD
         """
+        # OpenRouter free models have no cost
+        if self.provider == Provider.OPENROUTER:
+            return 0.0
+
         # Anthropic pricing (as of 2025-01)
         # These are approximate and should be updated with actual pricing
         pricing = {
@@ -199,6 +328,11 @@ class AnthropicClient:
         completion_cost = completion_tokens * model_pricing["completion"]
 
         return prompt_cost + completion_cost
+
+    async def close(self):
+        """Close HTTP client connection (OpenRouter only)"""
+        if self.http_client:
+            await self.http_client.aclose()
 
 
 # Singleton instance
