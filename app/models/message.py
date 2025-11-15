@@ -24,7 +24,9 @@ class Message(Base):
     )
     role = Column(String(20), nullable=False)  # 'user', 'assistant', 'system'
     content = Column(Text, nullable=False)
-    metadata = Column(JSONB, nullable=True)
+    extra_data = Column(
+        JSONB, nullable=True
+    )  # Renamed from 'metadata' to avoid SQLAlchemy conflict
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
     # Relationships

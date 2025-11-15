@@ -12,7 +12,7 @@ class MessageCreate(BaseModel):
 
     role: str = Field(..., description="Message role: user, assistant, system")
     content: str = Field(..., description="Message content")
-    metadata: Optional[Dict[str, Any]] = Field(None, description="Optional metadata")
+    extra_data: Optional[Dict[str, Any]] = Field(None, description="Optional extra data")
 
 
 class MessageResponse(BaseModel):
@@ -22,7 +22,7 @@ class MessageResponse(BaseModel):
     session_id: UUID
     role: str
     content: str
-    metadata: Optional[Dict[str, Any]]
+    extra_data: Optional[Dict[str, Any]]
     created_at: datetime
 
     model_config = {"from_attributes": True}

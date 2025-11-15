@@ -22,7 +22,7 @@ class MessageService:
             session_id=session_id,
             role=message_data.role,
             content=message_data.content,
-            metadata=message_data.metadata,
+            extra_data=message_data.extra_data,
         )
 
         self.db.add(message)
