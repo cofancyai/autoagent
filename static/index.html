@@ -932,8 +932,20 @@
         }
 
         async function sendMessage(content) {
+            // Ensure we have a valid session
             if (!state.sessionId) {
-                await createSession();
+                try {
+                    await createSession();
+                } catch (error) {
+                    addLog('Failed to create session. Please try again.', 'error', '❌');
+                    return;
+                }
+            }
+
+            // Double-check session ID is set
+            if (!state.sessionId) {
+                addLog('Session ID not available. Please click New Session first.', 'error', '❌');
+                return;
             }
 
             addLog(`Sending message to AI...`, 'info', '📤');
@@ -947,7 +959,10 @@
                     body: JSON.stringify({ content })
                 });
 
-                if (!response.ok) throw new Error('Failed to send message');
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.detail || 'Failed to send message');
+                }
 
                 const data = await response.json();
                 addLog(`Message sent successfully`, 'success', '✅');
