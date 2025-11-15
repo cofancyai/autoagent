@@ -958,7 +958,10 @@
                 const response = await fetch(`${API_BASE_URL}/sessions/${state.sessionId}/messages`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ content })
+                    body: JSON.stringify({
+                        role: 'user',
+                        content
+                    })
                 });
 
                 if (!response.ok) {
