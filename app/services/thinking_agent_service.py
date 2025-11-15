@@ -1,6 +1,7 @@
 """ThinkingAgent Service - Core AI reasoning logic"""
 
 import json
+import logging
 from typing import Any, Dict, Optional
 from uuid import UUID
 
@@ -16,6 +17,8 @@ from app.services.approval_service import ApprovalService
 from app.services.event_service import EventService
 from app.services.message_service import MessageService
 from app.services.prompts import SYSTEM_PROMPT, build_thinking_prompt
+
+logger = logging.getLogger(__name__)
 
 
 class ThinkingAgentService:
@@ -41,20 +44,36 @@ class ThinkingAgentService:
         Returns:
             ApprovalCheckpoint if options were generated, None otherwise
         """
+        logger.info("=" * 80)
+        logger.info("ThinkingAgent: Starting AI processing for user message")
+        logger.info("=" * 80)
+        logger.info(f"Session ID: {session_id}")
+        logger.info(f"Message ID: {user_message.id}")
+        logger.info(f"User Message: {user_message.content}")
+        logger.debug(f"Message Role: {user_message.role}")
+
         # Get conversation history for context
+        logger.debug("Fetching conversation history...")
         conversation_history = await self.message_service.get_conversation_history(
             session_id, limit=5
         )
+        logger.info(f"Retrieved {len(conversation_history)} previous messages for context")
 
         # Build the thinking prompt
+        logger.debug("Building thinking prompt...")
         prompt = build_thinking_prompt(user_message.content, conversation_history)
+        logger.debug(f"Prompt Length: {len(prompt)} chars")
+        logger.debug(f"Prompt Preview: {prompt[:200]}...")
 
         # Use Claude to generate strategic options
         try:
             # Select appropriate model (Sonnet for balanced quality/speed)
+            logger.debug("Selecting appropriate model for task...")
             model = await self.llm_client.select_model_for_task("approval_presentation")
+            logger.info(f"Selected Model: {model.value}")
 
             # Call Claude API
+            logger.info("Calling LLM API to generate strategic options...")
             response = await self.llm_client.generate(
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
@@ -62,36 +81,59 @@ class ThinkingAgentService:
                 use_cache=True,  # Cache system prompt for cost savings
             )
 
+            logger.info("LLM API call successful")
+            logger.debug(f"Response Model: {response.get('model')}")
+            logger.debug(f"Response Latency: {response.get('latency_ms')}ms")
+            logger.debug(f"Token Usage: {response.get('usage')}")
+            logger.debug(f"Response Content Length: {len(response.get('content', ''))} chars")
+
             # Parse the JSON response
+            logger.debug("Parsing AI response JSON...")
             thinking_result = self._parse_ai_response(response["content"])
 
             if not thinking_result or "options" not in thinking_result:
+                logger.warning("Failed to parse AI response or no options generated")
+                logger.debug(f"Thinking Result: {thinking_result}")
                 return None
 
+            logger.info(
+                f"Successfully parsed AI response with {len(thinking_result.get('options', []))} options"
+            )
+            logger.debug(
+                f"Options: {[opt.get('name') for opt in thinking_result.get('options', [])]}"
+            )
+
             # Create thinking process record
+            logger.debug("Creating thinking process record...")
             thinking_process = await self._create_thinking_process(
                 session_id=session_id,
                 input_data={"user_message": user_message.content, "prompt": prompt},
                 reasoning_steps=thinking_result.get("analysis"),
                 output_data=thinking_result,
             )
+            logger.info(f"Thinking Process created: {thinking_process.id}")
 
             # Create approval checkpoint with the generated options
+            logger.debug("Creating approval checkpoint...")
             approval_checkpoint = await self._create_approval_from_thinking(
                 session_id=session_id,
                 thinking_process_id=thinking_process.id,
                 thinking_result=thinking_result,
                 user_message=user_message.content,
             )
+            logger.info(f"Approval Checkpoint created: {approval_checkpoint.id}")
 
             # Create assistant message with the analysis
+            logger.debug("Creating assistant response message...")
             await self._create_assistant_response(
                 session_id=session_id,
                 thinking_result=thinking_result,
                 approval_id=approval_checkpoint.id,
             )
+            logger.info("Assistant response message created")
 
             # Log event
+            logger.debug("Logging completion event...")
             await self.event_service.log_event(
                 event_type="ai.thinking_completed",
                 event_data={
@@ -104,17 +146,34 @@ class ThinkingAgentService:
             )
 
             await self.db.commit()
+            logger.info("Database transaction committed successfully")
+            logger.info("=" * 80)
+            logger.info("ThinkingAgent: AI processing completed successfully")
+            logger.info("=" * 80)
 
             return approval_checkpoint
 
         except Exception as e:
+            logger.error("=" * 80)
+            logger.error("ThinkingAgent: AI processing FAILED")
+            logger.error(f"Error Type: {type(e).__name__}")
+            logger.error(f"Error Message: {str(e)}")
+            logger.error("=" * 80)
+
             await self.db.rollback()
+            logger.debug("Database transaction rolled back")
+
             # Log error
-            await self.event_service.log_event(
-                event_type="ai.thinking_failed",
-                event_data={"error": str(e), "user_message": user_message.content},
-                session_id=session_id,
-            )
+            try:
+                await self.event_service.log_event(
+                    event_type="ai.thinking_failed",
+                    event_data={"error": str(e), "user_message": user_message.content},
+                    session_id=session_id,
+                )
+                logger.debug("Error event logged successfully")
+            except Exception as log_error:
+                logger.error(f"Failed to log error event: {log_error}")
+
             raise
 
     def _parse_ai_response(self, response_text: str) -> Optional[Dict[str, Any]]:

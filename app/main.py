@@ -1,5 +1,6 @@
 """Main FastAPI application"""
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
@@ -11,15 +12,30 @@ from app.api.v1 import approvals, goals, messages, sessions
 from app.config import settings
 from app.database import close_db, init_db
 
+# Configure logging
+logging.basicConfig(
+    level=getattr(logging, settings.log_level.upper(), logging.INFO),
+    format="[%(asctime)s] %(levelname)s %(filename)s:%(lineno)d - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events"""
     # Startup
+    logger.info(f"Starting {settings.app_name} v{settings.app_version}")
+    logger.info(f"Environment: {settings.app_env}")
+    logger.info(f"Log Level: {settings.log_level}")
     await init_db()
+    logger.info("Database initialized successfully")
     yield
     # Shutdown
+    logger.info("Shutting down application")
     await close_db()
+    logger.info("Database connections closed")
 
 
 # Create FastAPI application

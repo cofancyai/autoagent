@@ -1,5 +1,7 @@
 """LLM API client supporting Anthropic and OpenRouter"""
 
+import json
+import logging
 import time
 from enum import Enum
 from typing import Any, AsyncIterator, Dict, List, Optional
@@ -9,6 +11,8 @@ from anthropic import AsyncAnthropic
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class Provider(str, Enum):
@@ -62,11 +66,21 @@ class AnthropicClient:
         # Detect provider from API key format
         self.provider = self._detect_provider(self.api_key)
 
+        # Log provider detection
+        masked_key = (
+            f"{self.api_key[:10]}...{self.api_key[-4:]}" if len(self.api_key) > 14 else "***"
+        )
+        logger.info(f"Initializing LLM client - Provider: {self.provider.value}")
+        logger.debug(f"API Key (masked): {masked_key}")
+
         # Initialize appropriate client
         if self.provider == Provider.ANTHROPIC:
+            logger.info("Using Anthropic Claude API")
             self.client = AsyncAnthropic(api_key=self.api_key)
             self.http_client = None
         else:  # OpenRouter
+            logger.info(f"Using OpenRouter API - Base URL: {self.OPENROUTER_BASE_URL}")
+            logger.info(f"OpenRouter Model: {settings.openrouter_model}")
             self.client = None
             self.http_client = httpx.AsyncClient(
                 base_url=self.OPENROUTER_BASE_URL,
@@ -77,6 +91,7 @@ class AnthropicClient:
                 },
                 timeout=60.0,
             )
+            logger.debug("HTTP Client initialized with timeout: 60.0s")
 
     def _detect_provider(self, api_key: str) -> Provider:
         """Detect LLM provider from API key format"""
@@ -201,6 +216,10 @@ class AnthropicClient:
         stream: bool,
     ) -> Dict[str, Any]:
         """Generate response using OpenRouter API (OpenAI-compatible format)"""
+        logger.info("=" * 80)
+        logger.info("OpenRouter API Call Starting")
+        logger.info("=" * 80)
+
         start_time = time.time()
 
         model_config = self._get_model_config(model)
@@ -210,14 +229,26 @@ class AnthropicClient:
         max_tokens = max_tokens or model_config["max_tokens"]
         temperature = temperature or model_config["temperature"]
 
+        logger.info(f"Model Type: {model.value}")
+        logger.info(f"Model ID: {model_id}")
+        logger.info(f"Max Tokens: {max_tokens}")
+        logger.info(f"Temperature: {temperature}")
+
         # Build OpenAI-compatible messages format
         openai_messages = []
 
         # Add system message if provided
         if system_context:
+            logger.debug(f"System Context Length: {len(system_context)} chars")
+            logger.debug(f"System Context Preview: {system_context[:200]}...")
             openai_messages.append({"role": "system", "content": system_context})
 
         # Add conversation messages
+        logger.debug(f"Number of messages: {len(messages)}")
+        for i, msg in enumerate(messages):
+            logger.debug(
+                f"Message {i}: role={msg.get('role')}, content_length={len(msg.get('content', ''))}"
+            )
         openai_messages.extend(messages)
 
         # Build request payload
@@ -228,34 +259,85 @@ class AnthropicClient:
             "temperature": temperature,
         }
 
-        # Make API call to OpenRouter
-        response = await self.http_client.post("/chat/completions", json=payload)
-        response.raise_for_status()
-        data = response.json()
+        # Log request details
+        logger.info(f"API Endpoint: {self.OPENROUTER_BASE_URL}/chat/completions")
+        logger.debug(f"Request Headers: {self._mask_headers()}")
+        logger.debug(f"Request Payload: {json.dumps(payload, indent=2)[:500]}...")
 
-        latency_ms = int((time.time() - start_time) * 1000)
+        try:
+            # Make API call to OpenRouter
+            logger.info("Sending request to OpenRouter...")
+            response = await self.http_client.post("/chat/completions", json=payload)
 
-        # Extract response in same format as Anthropic
-        content = ""
-        if data.get("choices") and len(data["choices"]) > 0:
-            content = data["choices"][0].get("message", {}).get("content", "")
+            logger.info(f"Response Status Code: {response.status_code}")
+            logger.debug(f"Response Headers: {dict(response.headers)}")
 
-        usage = data.get("usage", {})
-        finish_reason = (
-            data["choices"][0].get("finish_reason", "stop") if data.get("choices") else "stop"
-        )
+            # Log response body before raising for status
+            response_text = response.text
+            logger.debug(f"Response Body: {response_text[:1000]}")
 
-        return {
-            "content": content,
-            "model": model_id,
-            "usage": {
-                "prompt_tokens": usage.get("prompt_tokens", 0),
-                "completion_tokens": usage.get("completion_tokens", 0),
-                "total_tokens": usage.get("total_tokens", 0),
-            },
-            "latency_ms": latency_ms,
-            "stop_reason": finish_reason,
-        }
+            response.raise_for_status()
+            data = response.json()
+
+            latency_ms = int((time.time() - start_time) * 1000)
+            logger.info(f"Request completed successfully in {latency_ms}ms")
+
+            # Extract response in same format as Anthropic
+            content = ""
+            if data.get("choices") and len(data["choices"]) > 0:
+                content = data["choices"][0].get("message", {}).get("content", "")
+                logger.debug(f"Response Content Length: {len(content)} chars")
+                logger.debug(f"Response Preview: {content[:200]}...")
+
+            usage = data.get("usage", {})
+            logger.info(
+                f"Token Usage - Prompt: {usage.get('prompt_tokens', 0)}, "
+                f"Completion: {usage.get('completion_tokens', 0)}, "
+                f"Total: {usage.get('total_tokens', 0)}"
+            )
+
+            finish_reason = (
+                data["choices"][0].get("finish_reason", "stop") if data.get("choices") else "stop"
+            )
+
+            logger.info("=" * 80)
+            return {
+                "content": content,
+                "model": model_id,
+                "usage": {
+                    "prompt_tokens": usage.get("prompt_tokens", 0),
+                    "completion_tokens": usage.get("completion_tokens", 0),
+                    "total_tokens": usage.get("total_tokens", 0),
+                },
+                "latency_ms": latency_ms,
+                "stop_reason": finish_reason,
+            }
+
+        except httpx.HTTPStatusError as e:
+            logger.error("=" * 80)
+            logger.error(f"HTTP Error: {e.response.status_code}")
+            logger.error(f"Response Body: {e.response.text}")
+            logger.error(f"Request URL: {e.request.url}")
+            logger.error(f"Request Headers: {self._mask_headers()}")
+            logger.error("=" * 80)
+            raise
+        except Exception as e:
+            logger.error("=" * 80)
+            logger.error(f"Unexpected Error: {type(e).__name__}: {str(e)}")
+            logger.error("=" * 80)
+            raise
+
+    def _mask_headers(self) -> Dict[str, str]:
+        """Return headers with masked API key for logging"""
+        if self.http_client and hasattr(self.http_client, "headers"):
+            headers = dict(self.http_client.headers)
+            if "Authorization" in headers:
+                auth = headers["Authorization"]
+                if "Bearer " in auth:
+                    key = auth.replace("Bearer ", "")
+                    headers["Authorization"] = f"Bearer {key[:10]}...{key[-4:]}"
+            return headers
+        return {}
 
     async def _stream_response(
         self, request_params: Dict[str, Any], start_time: float

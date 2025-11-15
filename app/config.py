@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     app_version: str = Field(default="0.1.0", alias="APP_VERSION")
     app_env: str = Field(default="development", alias="APP_ENV")
     debug: bool = Field(default=True, alias="DEBUG")
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
     # Server
     host: str = Field(default="0.0.0.0", alias="HOST")
