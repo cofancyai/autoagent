@@ -39,6 +39,19 @@ class Session(Base):
     llm_api_calls = relationship(
         "LLMAPICall", back_populates="session", cascade="all, delete-orphan"
     )
+    # Execution system relationships
+    execution_projects = relationship(
+        "ExecutionProject", back_populates="session", cascade="all, delete-orphan"
+    )
+    execution_tasks = relationship(
+        "ExecutionTask", back_populates="session", cascade="all, delete-orphan"
+    )
+    created_assets = relationship(
+        "CreatedAsset", back_populates="session", cascade="all, delete-orphan"
+    )
+    service_integrations = relationship(
+        "ServiceIntegration", back_populates="session", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<Session(id={self.id}, title={self.title}, status={self.status})>"
